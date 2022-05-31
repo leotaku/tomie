@@ -119,15 +119,6 @@ void async_write(struct udata *ud, struct io_uring *ring) {
     io_uring_sqe_set_data(sqe, ud);
 }
 
-/* void sync_cleanup(struct udata *ud) { */
-/*     for (int i = 0; i < ud->iovec_count; i++) { */
-/*         free(ud->iov[i].iov_base); */
-/*     }; */
-/*     /\* shutdown(ud->client_socket, SHUT_WR); *\/ */
-/*     close(ud->socket); */
-/*     free(ud); */
-/* } */
-
 void async_cleanup(struct udata *ud, struct io_uring *ring) {
     for (int i = 0; i < ud->iovec_count; i++) {
         free(ud->iov[i].iov_base);
@@ -137,7 +128,6 @@ void async_cleanup(struct udata *ud, struct io_uring *ring) {
     // sqe->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
     // sqe->flags |= IOSQE_ASYNC;
     ud->event_type = AWAIT_SHUTDOWN;
-    /* io_uring_prep_shutdown(sqe, ud->socket, SHUT_RDWR); */
     io_uring_prep_close(sqe, ud->socket);
     io_uring_sqe_set_data(sqe, ud);
 }
