@@ -81,6 +81,7 @@ void async_read(struct udata *ud, struct io_uring *ring) {
     struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
     // sqe->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 1);
     // sqe->flags |= IOSQE_ASYNC;
+    /* sqe->flags |= IOSQE_FIXED_FILE; */
     ud->event_type = AWAIT_READ;
     ud->iovec_count = 1;
     ud->iov[0].iov_base = realloc(ud->iov[0].iov_base, 512);
@@ -93,6 +94,7 @@ void async_write(struct udata *ud, struct io_uring *ring) {
     struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
     // sqe->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 1);
     // sqe->flags |= IOSQE_ASYNC;
+    /* sqe->flags |= IOSQE_FIXED_FILE; */
     ud->event_type = AWAIT_WRITE;
     ud->iovec_count = 1;
     ud->iov[0].iov_base = realloc(ud->iov[0].iov_base, 512);
@@ -114,6 +116,7 @@ void async_cleanup(struct udata *ud, struct io_uring *ring) {
     struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
     // sqe->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
     // sqe->flags |= IOSQE_ASYNC;
+    /* sqe->flags |= IOSQE_FIXED_FILE; */
     ud->event_type = AWAIT_CLEANUP;
     io_uring_prep_close(sqe, ud->socket);
     io_uring_sqe_set_data(sqe, ud);
