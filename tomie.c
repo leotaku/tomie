@@ -7,8 +7,6 @@
 #include <systemd/sd-daemon.h>
 #include <unistd.h>
 
-#include <fcntl.h>
-#include <linux/ioprio.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
@@ -40,13 +38,6 @@ int listen_on(int port) {
         close(fd);
         exit(1);
     }
-
-    /* rc = ioctl(fd, FIONBIO, &(int){1}); */
-    /* if (rc < 0) { */
-    /*     fprintf(stderr, "ioctl(): %m\n"); */
-    /*     close(fd); */
-    /*     exit(1); */
-    /* } */
 
     memset(&sa, 0, sizeof(sa));
     sa.in.sin_family = AF_INET;
