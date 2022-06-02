@@ -12,11 +12,11 @@
 #include <sys/ioctl.h>
 
 enum {
-    AWAIT_NOOP,
+    AWAIT_NULL,
     AWAIT_ACCEPT,
     AWAIT_READ,
     AWAIT_WRITE,
-    AWAIT_SHUTDOWN,
+    AWAIT_CLEANUP,
 } await_type;
 
 int listen_on(int port) {
@@ -114,7 +114,7 @@ void async_cleanup(struct udata *ud, struct io_uring *ring) {
     struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
     // sqe->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
     // sqe->flags |= IOSQE_ASYNC;
-    ud->event_type = AWAIT_SHUTDOWN;
+    ud->event_type = AWAIT_CLEANUP;
     io_uring_prep_close(sqe, ud->socket);
     io_uring_sqe_set_data(sqe, ud);
 
