@@ -137,7 +137,6 @@ int main() {
     async_accept(listenfd, &ring);
     io_uring_submit(&ring);
 
-    int concurrent = 0;
     int i = 0;
     while (++i) {
         int ret = io_uring_wait_cqe(&ring, &cqe);
@@ -157,7 +156,6 @@ int main() {
         switch (ud->event_type) {
         case AWAIT_ACCEPT:
             ud->socket = cqe->res;
-            concurrent++;
             async_read(ud, &ring);
             async_accept(listenfd, &ring);
             io_uring_submit(&ring);
@@ -169,7 +167,6 @@ int main() {
         case AWAIT_WRITE:
             async_cleanup(ud, &ring);
             io_uring_submit(&ring);
-            concurrent--;
             break;
         }
         io_uring_cqe_seen(&ring, cqe);
