@@ -162,16 +162,21 @@ int main() {
             async_read(ud, &ring);
             async_accept(listenfd, &ring);
             io_uring_submit(&ring);
+            io_uring_cqe_seen(&ring, cqe);
             break;
         case AWAIT_READ:
             async_write(ud, &ring);
             io_uring_submit(&ring);
+            io_uring_cqe_seen(&ring, cqe);
             break;
         case AWAIT_WRITE:
             async_cleanup(ud, &ring);
             io_uring_submit(&ring);
+            io_uring_cqe_seen(&ring, cqe);
+            break;
+        case AWAIT_CLEANUP:
+            io_uring_cqe_seen(&ring, cqe);
             break;
         }
-        io_uring_cqe_seen(&ring, cqe);
     }
 }
