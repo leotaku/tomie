@@ -1,15 +1,16 @@
 #define _POSIX_SOURCE
-#include <liburing.h>
 #include <malloc.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#include <liburing.h>
+#include <netinet/in.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <systemd/sd-daemon.h>
 #include <unistd.h>
-
-#include <netinet/in.h>
-#include <stdlib.h>
-#include <sys/ioctl.h>
 
 enum {
     AWAIT_NULL,
