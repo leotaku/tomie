@@ -12,14 +12,9 @@
 #include <systemd/sd-daemon.h>
 #include <unistd.h>
 
-enum {
-    AWAIT_ACCEPT,
-    AWAIT_READ,
-    AWAIT_WRITE,
-    AWAIT_CLEANUP,
-} await_type;
+/* Listen */
 
-int listen_on(int port) {
+int tomie_listen_port(int port) {
     union {
         struct sockaddr sa;
         struct sockaddr_in in;
@@ -57,87 +52,118 @@ int listen_on(int port) {
     return fd;
 }
 
-struct udata {
+int tomie_listen_with_default(int default_port) {
+    if (sd_listen_fds(0) == 1) {
+        return SD_LISTEN_FDS_START + 0;
+    } else {
+        return tomie_listen_port(default_port);
+    }
+}
+
+/* Server */
+
+enum {
+    TOMIE_READ,
+    TOMIE_WRITE,
+    TOMIE_CLEANUP,
+    TOMIE_REACCEPT,
+} tomie_await_type;
+
+struct tomie_data {
     int event_type;
-    int iovec_count;
-    int socket;
+    int connected_socket;
+    int listen_socket;
+    int iovec_offset;
+    int iovec_used;
     struct iovec iov[];
 };
 
-void async_accept(int listenfd, struct io_uring *ring) {
-    struct udata *ud = calloc(1, sizeof(*ud) + sizeof(struct iovec));
+struct tomie_data *tomie_make_data(int nmemb, int initialize, int size) {
+    struct tomie_data *ud = calloc(1, sizeof(*ud) + sizeof(struct iovec) * nmemb);
+    ud->iovec_used = initialize;
+    for (int i = 0; i < initialize; i++) {
+        ud->iov[i].iov_base = calloc(size, sizeof(char));
+        ud->iov[i].iov_len = size;
+    }
+
+    return ud;
+}
+
+void tomie_async_accept(struct tomie_data *ud, struct io_uring *ring) {
     struct sockaddr *addr = 0;
     socklen_t len;
-
     struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
-    // sqe->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 4);
-    // sqe->flags |= IOSQE_ASYNC;
-    ud->event_type = AWAIT_ACCEPT;
-    io_uring_prep_accept(sqe, listenfd, (struct sockaddr *)addr, &len, 0);
+    ud->event_type = TOMIE_READ;
+    io_uring_prep_accept(sqe, ud->listen_socket, (struct sockaddr *)addr, &len, 0);
     io_uring_sqe_set_data(sqe, ud);
 }
 
-void async_read(struct udata *ud, struct io_uring *ring) {
+void tomie_async_read(struct tomie_data *ud, struct io_uring *ring) {
     struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
-    // sqe->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 1);
-    // sqe->flags |= IOSQE_ASYNC;
-    /* sqe->flags |= IOSQE_FIXED_FILE; */
-    ud->event_type = AWAIT_READ;
-    ud->iovec_count = 1;
-    ud->iov[0].iov_base = realloc(ud->iov[0].iov_base, 512);
-    ud->iov[0].iov_len = 512;
-    io_uring_prep_readv(sqe, ud->socket, &ud->iov[0], 1, 0);
+    ud->event_type = TOMIE_WRITE;
+    io_uring_prep_readv(
+        sqe, ud->connected_socket, &ud->iov[ud->iovec_offset], ud->iovec_used, 0);
     io_uring_sqe_set_data(sqe, ud);
 }
 
-void async_write(struct udata *ud, struct io_uring *ring) {
+void tomie_async_write(struct tomie_data *ud, struct io_uring *ring) {
     struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
-    // sqe->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 1);
-    // sqe->flags |= IOSQE_ASYNC;
-    /* sqe->flags |= IOSQE_FIXED_FILE; */
-    ud->event_type = AWAIT_WRITE;
-    ud->iovec_count = 1;
-    ud->iov[0].iov_base = realloc(ud->iov[0].iov_base, 512);
-    ud->iov[0].iov_len = 512;
-    strcpy(ud->iov[0].iov_base,
-        "HTTP/1.0 200 OK\r\n"
-        "Server: tomie/0.1\r\n"
-        "Content-Type: text; charset=utf-8\r\n"
-        "Content-Length: 7\r\n"
-        "Connection: close\r\n"
-        "\r\n"
-        "Hello\r\n\0");
-    ud->iov[0].iov_len = strlen(ud->iov[0].iov_base);
-    io_uring_prep_writev(sqe, ud->socket, ud->iov, ud->iovec_count, 0);
+    ud->event_type = TOMIE_CLEANUP;
+    io_uring_prep_writev(
+        sqe, ud->connected_socket, &ud->iov[ud->iovec_offset], ud->iovec_used, 0);
     io_uring_sqe_set_data(sqe, ud);
 }
 
-void async_cleanup(struct udata *ud, struct io_uring *ring) {
+void tomie_async_cleanup(struct tomie_data *ud, struct io_uring *ring) {
     struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
-    // sqe->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
-    // sqe->flags |= IOSQE_ASYNC;
-    /* sqe->flags |= IOSQE_FIXED_FILE; */
-    ud->event_type = AWAIT_CLEANUP;
-    io_uring_prep_close(sqe, ud->socket);
+    ud->event_type = TOMIE_REACCEPT;
+    io_uring_prep_close(sqe, ud->connected_socket);
     io_uring_sqe_set_data(sqe, ud);
+}
 
-    for (int i = 0; i < ud->iovec_count; i++) {
-        free(ud->iov[i].iov_base);
-    };
+void tomie_forward_result(struct io_uring_cqe *cqe, struct io_uring *ring) {
+    struct tomie_data *ud = (struct tomie_data *)cqe->user_data;
+    if (cqe->res < 0) {
+        fprintf(stderr, "async(?, %i): %s\n", ud->event_type, strerror(-cqe->res));
+        if (cqe) io_uring_cqe_seen(ring, cqe);
+        return;
+    }
+
+    switch (ud->event_type) {
+    case TOMIE_READ:
+        ud->connected_socket = cqe->res;
+        tomie_async_read(ud, ring);
+        io_uring_submit(ring);
+        io_uring_cqe_seen(ring, cqe);
+        break;
+    case TOMIE_WRITE:
+        tomie_async_write(ud, ring);
+        io_uring_submit(ring);
+        io_uring_cqe_seen(ring, cqe);
+        break;
+    case TOMIE_CLEANUP:
+        tomie_async_cleanup(ud, ring);
+        io_uring_submit(ring);
+        io_uring_cqe_seen(ring, cqe);
+        break;
+    case TOMIE_REACCEPT:
+        tomie_async_accept(ud, ring);
+        io_uring_submit(ring);
+        io_uring_cqe_seen(ring, cqe);
+        break;
+    }
 }
 
 int main() {
-    int listenfd;
-    if (sd_listen_fds(0) == 1) {
-        listenfd = SD_LISTEN_FDS_START + 0;
-    } else {
-        listenfd = listen_on(2020);
-    }
+    int listenfd = tomie_listen_with_default(2020);
 
     struct io_uring ring;
     struct io_uring_cqe *cqe;
     io_uring_queue_init(256, &ring, 0);
-    async_accept(listenfd, &ring);
+
+    struct tomie_data *ud = tomie_make_data(2, 2, 1024);
+    ud->listen_socket = listenfd;
+    tomie_async_accept(ud, &ring);
     io_uring_submit(&ring);
 
     int i = 0;
@@ -149,34 +175,27 @@ int main() {
             continue;
         }
 
-        struct udata *ud = (struct udata *)cqe->user_data;
-        if (cqe->res < 0) {
-            fprintf(stderr, "async(?, %i): %s\n", ud->event_type, strerror(-cqe->res));
-            if (cqe) io_uring_cqe_seen(&ring, cqe);
-            continue;
-        }
-
+        struct tomie_data *ud = (struct tomie_data *)cqe->user_data;
         switch (ud->event_type) {
-        case AWAIT_ACCEPT:
-            ud->socket = cqe->res;
-            async_read(ud, &ring);
-            async_accept(listenfd, &ring);
-            io_uring_submit(&ring);
-            io_uring_cqe_seen(&ring, cqe);
+        case TOMIE_READ:
+            ud->iovec_offset = 1;
+            ud->iovec_used = 1;
             break;
-        case AWAIT_READ:
-            async_write(ud, &ring);
-            io_uring_submit(&ring);
-            io_uring_cqe_seen(&ring, cqe);
-            break;
-        case AWAIT_WRITE:
-            async_cleanup(ud, &ring);
-            io_uring_submit(&ring);
-            io_uring_cqe_seen(&ring, cqe);
-            break;
-        case AWAIT_CLEANUP:
-            io_uring_cqe_seen(&ring, cqe);
+        case TOMIE_WRITE:
+            ud->iov[1].iov_len = cqe->res;
+            ud->iovec_offset = 0;
+            ud->iovec_used = 2;
+            sprintf(ud->iov[0].iov_base,
+                "HTTP/1.0 200 OK\r\n"
+                "Server: tomie/0.1\r\n"
+                "Content-Type: text; charset=utf-8\r\n"
+                "Content-Length: %lu\r\n"
+                "Connection: close\r\n"
+                "\r\n",
+                ud->iov[1].iov_len);
+            ud->iov[0].iov_len = strlen(ud->iov[0].iov_base);
             break;
         }
+        tomie_forward_result(cqe, &ring);
     }
 }
