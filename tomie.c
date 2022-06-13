@@ -13,7 +13,6 @@
 #include <unistd.h>
 
 enum {
-    AWAIT_NULL,
     AWAIT_ACCEPT,
     AWAIT_READ,
     AWAIT_WRITE,
