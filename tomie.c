@@ -62,15 +62,15 @@ int tomie_listen_with_default(int default_port) {
 
 /* Server */
 
-enum {
+enum tomie_await_type {
     TOMIE_READ,
     TOMIE_WRITE,
     TOMIE_CLEANUP,
     TOMIE_REACCEPT,
-} tomie_await_type;
+};
 
 struct tomie_data {
-    int event_type;
+    enum tomie_await_type event_type;
     int connected_socket;
     int listen_socket;
     int iovec_offset;
