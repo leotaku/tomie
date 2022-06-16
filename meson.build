@@ -19,9 +19,19 @@ libsystemd_dep = dependency(
   'libsystemd',
   required: true,
 )
+tomie_lib = both_libraries(
+  'tomie', [ 'tomie.c' ],
+  dependencies : [ liburing_dep, libsystemd_dep ],
+  pic : true,
+  install : true,
+)
+
+tomie_dep = declare_dependency(
+  link_with : [ tomie_lib ],
+)
 
 tomie_exe = executable(
-  'tomie', [ 'tomie.c' ],
+  'tomie', [ 'main.c' ],
   override_options : [ 'b_sanitize=address,undefined' ],
   c_args : [ ],
   dependencies : [ liburing_dep, libsystemd_dep ],
