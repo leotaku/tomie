@@ -89,6 +89,13 @@ struct tomie_data *tomie_make_data(int nmemb, int initialize, int size) {
     return ud;
 }
 
+void tomie_free_data(struct tomie_data *ud) {
+    for (int i = 0; i < ud->iovec_used; i++) {
+        free(ud->iov[i].iov_base);
+    }
+    free(ud);
+}
+
 void tomie_async_accept(struct tomie_data *ud, struct io_uring *ring) {
     struct sockaddr *addr = 0;
     socklen_t len;
