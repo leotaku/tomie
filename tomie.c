@@ -23,13 +23,13 @@ int tomie_listen_port(int port) {
 
     fd = socket(PF_INET, SOCK_STREAM, 0);
     if (fd < 0) {
-        return -1;
+        return fd;
     }
 
     rc = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(fd));
     if (rc < 0) {
         close(fd);
-        return -1;
+        return rc;
     }
 
     memset(&sa, 0, sizeof(sa));
@@ -37,12 +37,12 @@ int tomie_listen_port(int port) {
     sa.in.sin_port = htons(port);
     sa.in.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    if (bind(fd, &sa.sa, sizeof(sa)) < 0) {
-        return -1;
+    if ((rc = bind(fd, &sa.sa, sizeof(sa)) < 0)) {
+        return rc;
     }
 
-    if (listen(fd, SOMAXCONN) < 0) {
-        return -1;
+    if ((rc = listen(fd, SOMAXCONN)) < 0) {
+        return rc;
     }
 
     return fd;
