@@ -12,6 +12,8 @@
 #include <systemd/sd-daemon.h>
 #include <unistd.h>
 
+#include <include/tomie.h>
+
 /* Listen */
 
 int tomie_listen_port(int port) {
@@ -58,23 +60,7 @@ int tomie_listen_with_default(int default_port) {
     }
 }
 
-/* Server */
-
-enum tomie_await_type {
-    TOMIE_READ,
-    TOMIE_WRITE,
-    TOMIE_CLEANUP,
-    TOMIE_REACCEPT,
-};
-
-struct tomie_data {
-    enum tomie_await_type event_type;
-    int connected_socket;
-    int listen_socket;
-    int iovec_offset;
-    int iovec_used;
-    struct iovec iov[];
-};
+/* Data */
 
 struct tomie_data *tomie_make_data(int nmemb, int initialize, int size) {
     struct tomie_data *ud = calloc(1, sizeof(*ud) + sizeof(struct iovec) * nmemb);

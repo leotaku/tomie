@@ -34,5 +34,5 @@ tomie_exe = executable(
   'tomie', [ 'main.c' ],
   override_options : [ 'b_sanitize=address,undefined' ],
   c_args : [ ],
-  dependencies : [ liburing_dep, libsystemd_dep ],
+  dependencies : [ tomie_dep ],
 )

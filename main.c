@@ -1,5 +1,7 @@
 #define _POSIX_SOURCE
-#include <tomie.c>
+#include <include/tomie.h>
+#include <stdio.h>
+#include <string.h>
 
 int main() {
     int listenfd = tomie_listen_with_default(2020);
