@@ -38,10 +38,12 @@ int tomie_listen_port(int port) {
     sa.in.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if ((rc = bind(fd, &sa.sa, sizeof(sa)) < 0)) {
+        close(fd);
         return rc;
     }
 
     if ((rc = listen(fd, SOMAXCONN)) < 0) {
+        close(fd);
         return rc;
     }
 
