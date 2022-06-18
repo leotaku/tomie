@@ -94,67 +94,102 @@ void tomie_free_data(struct tomie_data *ud) {
     free(ud);
 }
 
-void tomie_async_accept(struct tomie_data *ud, struct io_uring *ring) {
+/* Loop */
+
+struct tomie_queue {
+    struct io_uring ring;
+};
+
+struct tomie_queue *tomie_queue_init() {
+    struct tomie_queue *tq = calloc(1, sizeof(*tq));
+    io_uring_queue_init(256, &tq->ring, 0);
+    return tq;
+}
+
+int tomie_queue_submit(struct tomie_queue *tq) { return io_uring_submit(&tq->ring); }
+
+int tomie_await(struct tomie_queue *tq, struct tomie_data **ud_ptr) {
+    struct io_uring_cqe *cqe;
+    int ret = io_uring_wait_cqe(&tq->ring, &cqe);
+    if (ret < 0) {
+        return ret;
+    }
+    io_uring_cqe_seen(&tq->ring, cqe);
+    if (cqe->res < 0) {
+        return cqe->res;
+    }
+
+    struct tomie_data *ud = (struct tomie_data *)cqe->user_data;
+    switch (ud->event_type) {
+    case TOMIE_READ:
+        ud->connected_socket = cqe->res;
+        break;
+    case TOMIE_WRITE:
+        for (int i = ud->iovec_offset; i < ud->iovec_offset + ud->iovec_used; i++) {
+            if (ud->iov[i].iov_len >= (size_t)(cqe->res)) {
+                ud->iov[i].iov_len = cqe->res;
+            } else {
+                cqe->res -= ud->iov[i].iov_len;
+            }
+        }
+        break;
+    default:
+        break;
+    }
+
+    *ud_ptr = ud;
+    return 0;
+}
+
+void tomie_async_accept(struct tomie_data *ud, struct tomie_queue *tq) {
     struct sockaddr *addr = 0;
     socklen_t len;
-    struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+    struct io_uring_sqe *sqe = io_uring_get_sqe(&tq->ring);
     ud->event_type = TOMIE_READ;
     io_uring_prep_accept(sqe, ud->listen_socket, (struct sockaddr *)addr, &len, 0);
     io_uring_sqe_set_data(sqe, ud);
 }
 
-void tomie_async_read(struct tomie_data *ud, struct io_uring *ring) {
-    struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+void tomie_async_read(struct tomie_data *ud, struct tomie_queue *tq) {
+    struct io_uring_sqe *sqe = io_uring_get_sqe(&tq->ring);
     ud->event_type = TOMIE_WRITE;
     io_uring_prep_readv(
         sqe, ud->connected_socket, &ud->iov[ud->iovec_offset], ud->iovec_used, 0);
     io_uring_sqe_set_data(sqe, ud);
 }
 
-void tomie_async_write(struct tomie_data *ud, struct io_uring *ring) {
-    struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+void tomie_async_write(struct tomie_data *ud, struct tomie_queue *tq) {
+    struct io_uring_sqe *sqe = io_uring_get_sqe(&tq->ring);
     ud->event_type = TOMIE_CLEANUP;
     io_uring_prep_writev(
         sqe, ud->connected_socket, &ud->iov[ud->iovec_offset], ud->iovec_used, 0);
     io_uring_sqe_set_data(sqe, ud);
 }
 
-void tomie_async_cleanup(struct tomie_data *ud, struct io_uring *ring) {
-    struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+void tomie_async_cleanup(struct tomie_data *ud, struct tomie_queue *tq) {
+    struct io_uring_sqe *sqe = io_uring_get_sqe(&tq->ring);
     ud->event_type = TOMIE_REACCEPT;
     io_uring_prep_close(sqe, ud->connected_socket);
     io_uring_sqe_set_data(sqe, ud);
 }
 
-void tomie_forward_result(struct io_uring_cqe *cqe, struct io_uring *ring) {
-    struct tomie_data *ud = (struct tomie_data *)cqe->user_data;
-    if (cqe->res < 0) {
-        fprintf(stderr, "async(?, %i): %s\n", ud->event_type, strerror(-cqe->res));
-        if (cqe) io_uring_cqe_seen(ring, cqe);
-        return;
-    }
-
+void tomie_async_forward(struct tomie_data *ud, struct tomie_queue *tq) {
     switch (ud->event_type) {
     case TOMIE_READ:
-        ud->connected_socket = cqe->res;
-        tomie_async_read(ud, ring);
-        io_uring_submit(ring);
-        io_uring_cqe_seen(ring, cqe);
+        tomie_async_read(ud, tq);
+        io_uring_submit(&tq->ring);
         break;
     case TOMIE_WRITE:
-        tomie_async_write(ud, ring);
-        io_uring_submit(ring);
-        io_uring_cqe_seen(ring, cqe);
+        tomie_async_write(ud, tq);
+        io_uring_submit(&tq->ring);
         break;
     case TOMIE_CLEANUP:
-        tomie_async_cleanup(ud, ring);
-        io_uring_submit(ring);
-        io_uring_cqe_seen(ring, cqe);
+        tomie_async_cleanup(ud, tq);
+        io_uring_submit(&tq->ring);
         break;
     case TOMIE_REACCEPT:
-        tomie_async_accept(ud, ring);
-        io_uring_submit(ring);
-        io_uring_cqe_seen(ring, cqe);
+        tomie_async_accept(ud, tq);
+        io_uring_submit(&tq->ring);
         break;
     }
 }
