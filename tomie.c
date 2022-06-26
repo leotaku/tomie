@@ -154,13 +154,17 @@ void tomie_async_write(struct tomie_data *ud, struct tomie_queue *tq) {
 
 void tomie_async_cleanup(struct tomie_data *ud, struct tomie_queue *tq) {
     struct io_uring_sqe *sqe = io_uring_get_sqe(&tq->ring);
-    ud->event_type = TOMIE_REACCEPT;
+    ud->event_type = TOMIE_ACCEPT;
     io_uring_prep_close(sqe, ud->connected_socket);
     io_uring_sqe_set_data(sqe, ud);
 }
 
 void tomie_async_forward(struct tomie_data *ud, struct tomie_queue *tq) {
     switch (ud->event_type) {
+    case TOMIE_ACCEPT:
+        tomie_async_accept(ud, tq);
+        io_uring_submit(&tq->ring);
+        break;
     case TOMIE_READ:
         tomie_async_read(ud, tq);
         io_uring_submit(&tq->ring);
@@ -171,10 +175,6 @@ void tomie_async_forward(struct tomie_data *ud, struct tomie_queue *tq) {
         break;
     case TOMIE_CLEANUP:
         tomie_async_cleanup(ud, tq);
-        io_uring_submit(&tq->ring);
-        break;
-    case TOMIE_REACCEPT:
-        tomie_async_accept(ud, tq);
         io_uring_submit(&tq->ring);
         break;
     }

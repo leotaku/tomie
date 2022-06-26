@@ -6,10 +6,10 @@
 struct tomie_queue;
 
 enum tomie_await_type {
+    TOMIE_ACCEPT,
     TOMIE_READ,
     TOMIE_WRITE,
     TOMIE_CLEANUP,
-    TOMIE_REACCEPT,
 };
 
 struct tomie_data {
