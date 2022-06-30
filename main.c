@@ -10,8 +10,8 @@ int main() {
         return 1;
     }
 
-    struct tomie_queue *tq = tomie_queue_init();
-    if (!tq) {
+    struct tomie_loop *tl = tomie_loop_init();
+    if (!tl) {
         fprintf(stderr, "tomie_queue_init(): error\n");
         return 1;
     }
@@ -21,12 +21,12 @@ int main() {
         return 1;
     }
     ud->listen_socket = listenfd;
-    tomie_async_accept(ud, tq);
-    tomie_queue_submit(tq);
+    tomie_async_accept(ud, tl);
+    tomie_loop_refresh(tl);
 
     int i = 0;
     while (++i) {
-        int ret = tomie_await(tq, &ud);
+        int ret = tomie_await(tl, &ud);
         if (ret < 0) {
             fprintf(stderr, "tomie_await(%d, ?): %s\n", ud->event_type, strerror(-ret));
             continue;
@@ -54,6 +54,6 @@ int main() {
         default:
             break;
         }
-        tomie_async_forward(ud, tq);
+        tomie_async_forward(ud, tl);
     }
 }
