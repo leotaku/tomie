@@ -15,13 +15,9 @@ liburing_dep = dependency(
   'liburing',
   required: true,
 )
-libsystemd_dep = dependency(
-  'libsystemd',
-  required: true,
-)
 tomie_lib = both_libraries(
   'tomie', [ 'tomie.c' ],
-  dependencies : [ liburing_dep, libsystemd_dep ],
+  dependencies : [ liburing_dep ],
   pic : true,
   install : true,
 )

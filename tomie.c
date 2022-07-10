@@ -9,7 +9,6 @@
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <systemd/sd-daemon.h>
 #include <unistd.h>
 
 #include "include/tomie.h"
@@ -53,11 +52,7 @@ int tomie_listen_port(int port) {
 }
 
 int tomie_listen_with_default(int default_port) {
-    if (sd_listen_fds(0) == 1) {
-        return SD_LISTEN_FDS_START + 0;
-    } else {
-        return tomie_listen_port(default_port);
-    }
+    return tomie_listen_port(default_port);
 }
 
 /* Data */
