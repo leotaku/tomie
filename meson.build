@@ -15,7 +15,7 @@ liburing_dep = dependency(
   'liburing',
   required: true,
 )
-tomie_lib = both_libraries(
+tomie_lib = library(
   'tomie', [ 'tomie.c' ],
   dependencies : [ liburing_dep ],
   pic : true,
