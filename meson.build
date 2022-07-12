@@ -13,7 +13,7 @@ project(
 
 liburing_dep = dependency(
   'liburing',
-  required: true,
+  required : true,
 )
 tomie_lib = library(
   'tomie', [ 'tomie.c' ],
