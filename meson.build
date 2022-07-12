@@ -15,13 +15,13 @@ liburing_dep = dependency(
   'liburing',
   required : true,
 )
+
 tomie_lib = library(
   'tomie', [ 'tomie.c' ],
   dependencies : [ liburing_dep ],
   pic : true,
   install : true,
 )
-
 tomie_dep = declare_dependency(
   link_with : [ tomie_lib ],
 )
