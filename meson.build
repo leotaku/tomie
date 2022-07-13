@@ -11,9 +11,12 @@ project(
   ],
 )
 
+prefer_static_fix_before_v63 = meson.get_external_property('prefer_static')
+
 liburing_dep = dependency(
   'liburing',
   required : true,
+  static : prefer_static_fix_before_v63,
 )
 
 tomie_lib = library(

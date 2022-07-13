@@ -1,0 +1,6 @@
+[properties]
+prefer_static = true
+
+[built-in options]
+default_library = 'static'
+c_link_args = '-static'

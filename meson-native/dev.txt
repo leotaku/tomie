@@ -1,0 +1,7 @@
+[properties]
+prefer_static = false
+
+[built-in options]
+default_library = 'both'
+b_sanitize = 'address,undefined'
+b_lundef = false
