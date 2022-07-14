@@ -1,4 +1,4 @@
-#define _POSIX_SOURCE
+#define _GNU_SOURCE
 #include <malloc.h>
 #include <stddef.h>
 #include <stdio.h>
