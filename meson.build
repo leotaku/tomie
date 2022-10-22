@@ -34,3 +34,18 @@ echo_exe = executable(
   dependencies : [ tomie_dep ],
   build_by_default : false,
 )
+
+docker_prog = find_program(
+  'docker',
+  required : false,
+)
+if docker_prog.found()
+  tomie_static = custom_target(
+    'tomie_static',
+    output : 'static',
+    command : [docker_prog, 'build', '@SOURCE_ROOT@', '--output', '@OUTPUT@'],
+    env : [ 'DOCKER_BUILDKIT=1' ],
+    build_always_stale : true,
+    build_by_default : false,
+  )
+endif
