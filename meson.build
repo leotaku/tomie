@@ -30,7 +30,7 @@ tomie_dep = declare_dependency(
 )
 
 echo_exe = executable(
-  'echo', [ 'echo.c' ],
+  'echo', [ 'contrib/echo.c' ],
   dependencies : [ tomie_dep ],
   build_by_default : false,
 )

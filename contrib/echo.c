@@ -1,12 +1,13 @@
 #define _POSIX_SOURCE
 #include "include/tomie.h"
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 
 int main() {
     int listenfd = tomie_listen_with_default(2020);
     if (listenfd < 0) {
-        fprintf(stderr, "tomie_listen_with_default(): %m\n");
+        fprintf(stderr, "tomie_listen_with_default(): %s\n", strerror(errno));
         return 1;
     }
 
@@ -24,8 +25,7 @@ int main() {
     tomie_async_accept(ud, tl);
     tomie_loop_refresh(tl);
 
-    int i = 0;
-    while (++i) {
+    while (1) {
         int ret = tomie_await(tl, &ud);
         if (ret < 0) {
             fprintf(stderr, "tomie_await(%d, ?): %s\n", ud->event_type, strerror(-ret));
