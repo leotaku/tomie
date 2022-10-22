@@ -31,6 +31,8 @@ void tomie_free_data(struct tomie_data *ud);
 
 struct tomie_loop *tomie_loop_init();
 
+void tomie_loop_finalize(struct tomie_loop *tl);
+
 int tomie_loop_refresh(struct tomie_loop *tl);
 
 int tomie_await(struct tomie_loop *tl, struct tomie_data **ud_ptr);

@@ -87,6 +87,11 @@ struct tomie_loop *tomie_loop_init() {
     return tl;
 }
 
+void tomie_loop_finalize(struct tomie_loop *tl) {
+    io_uring_queue_exit(&tl->ring);
+    free(tl);
+}
+
 int tomie_loop_refresh(struct tomie_loop *tl) { return io_uring_submit(&tl->ring); }
 
 int tomie_await(struct tomie_loop *tl, struct tomie_data **ud_ptr) {
