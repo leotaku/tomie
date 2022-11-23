@@ -18,6 +18,11 @@ liburing_dep = dependency(
   required : true,
   static : prefer_static_fix_before_v63,
 )
+sqlite3_dep = dependency(
+  'sqlite3',
+  required : true,
+  static : prefer_static_fix_before_v63,
+)
 
 tomie_lib = library(
   'tomie', [ 'tomie.c' ],
@@ -29,6 +34,11 @@ tomie_dep = declare_dependency(
   link_with : [ tomie_lib ],
 )
 
+fullstack_exe = executable(
+  'fullstack', [ 'contrib/fullstack/main.c' ],
+  dependencies : [ tomie_dep, sqlite3_dep ],
+  build_by_default : false,
+)
 echo_exe = executable(
   'echo', [ 'contrib/echo.c' ],
   dependencies : [ tomie_dep ],
