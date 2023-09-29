@@ -7,7 +7,7 @@ project(
     'warning_level=3',
     'debug=true',
     'optimization=3',
-    'b_lto=true',
+    'b_lto=false',
   ],
 )
 
